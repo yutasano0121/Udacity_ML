@@ -9,7 +9,7 @@ Outline for using AWS SageMaker:
 7. Use the deployed model.
 """
 
-%matplotlib inline  # for jupyter notebook
+# %matplotlib inline  # for jupyter notebook
 
 # general libraries
 import os
@@ -24,18 +24,29 @@ from sklearn.datasets import load_boston
 # sagemaker libraries
 import sagemaker
 from sagemaker import get_execution_role
-from sagemaker.amazon.amazon_estimator import get_image_url
+from sagemaker.amazon.amazon_estimator import get_image_uri
 from sagemaker.predictor import csv_serializer
 
+import logging
 
-# Create logger
-working_dir = '~/SageMaker/sagemaker-deployment/'
+working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
 log_dir = working_dir + 'log/'
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
-
 log_filename = log_dir + 'boston_tutorial.log'
-import(logger)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s:%(levelname)s:(name)s:%(message)s')
+
+
+file_handler = logging.FileHandler(log_filename)
+print('log file {} created'.format(log_filename))
+
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
 
 
 # make a local directly to store the split data in
@@ -44,15 +55,16 @@ if not os.path.exists(data_dir):
     os.makedirs(data_dir)
 
 
-log_filename =
 
 session = sagemaker.Session()  # SageMaker session info (region etc.)
 role = get_execution_role()  # currently assigned IAM role (i.e. access rights. See https://aws.amazon.com/iam/)
 
 # Download the data
-boston = load_boston
+logger.info('Data loading')
+boston = load_boston()
 x_boston = pd.DataFrame(boston.data, columns=boston.feature_names)
 y_boston = pd.DataFrame(boston.target)
+logger.info('Data loaded')
 
 # split the data into train and test datasets
 x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(
@@ -72,22 +84,19 @@ x_train, x_val, y_train, y_val = sklearn.model_selection.train_test_split(
 """
 To run SageMaker, data need to be in a S3 storage bucket.
 """
-
-# make a local directly to store the split data in
-working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
-data_dir = working_dir + 'data/boston'
-if not os.path.exists(data_dir):
-    os.makedirs(data_dir)
-
 # store the data. Make sure header and index are both set False.
 # also make sure that the first column stores target valriables
 pd.concat([y_val, x_val], axis=1).to_csv(
-    os.path.join(data_dir, 'validation_boston.csv', header=False, index=False)
+    os.path.join(data_dir, 'validation_boston.csv'), 
+    header=False, index=False
 )
 
+
 pd.concat([y_train, x_train], axis=1).to_csv(
-    os.path.join(data_dir, 'train_boston.csv', header=False, index=False)
+    os.path.join(data_dir, 'train_boston.csv'), 
+    header=False, index=False
 )
+logger.info('Data stored locally.')
 
 # Upload the data to S3.
 prefix = 'boston_xgboost_high'  # S3 folder name
@@ -101,7 +110,7 @@ train_location = session.upload_data(
     os.path.join(data_dir, 'train.csv'),
     key_prefix=prefix
 )
-
+logger.info('Data uploaded to S3.')
 
 """
 Train XGBoost using a container provided by SageMaker.
@@ -138,6 +147,7 @@ s3_train = sagemaker.s3_input(s3_data=train_location, content_type='csv')
 s3_val = sagemaker.s3_input(s3_data=val_location, content_type='csv')
 
 # Fit the model.
+logger.info('Model fitting')
 xgb.fit({
     'train': s3_train,
     'validation': s3_val
@@ -151,6 +161,7 @@ by "DEPLOYED_MODEL.delete_endpoint."
 """
 
 # Create an endpoint.
+logger.info('Endpoint created.')
 xgb_predictor = xgb.deploy(
     initial_instance_count=1,
     instance_type='ml.m4.xlarge'
@@ -163,8 +174,15 @@ xgb_predictor.serializer = csv_serializer
 
 
 # make a prediction
+logger.info('Making a prediction.')
 y_pred = xgb_predictor.predict(x_test.values).decode('utf-8')  # Returns a string
 y_pred = np.fromstring(y_pred, sep=',')  # Make it to np.array.
+
+
+
+# Close the endpoint.
+xgb_predictor.delete_endpoint()
+logger.info('Endpoint deleted.')
 
 
 # Plot predicted/true values.
@@ -173,9 +191,8 @@ plot.xlabel('true')
 plot.ylabel('predicted')
 
 
-# Close the endpoint.
-xgb_predictor.delete_endpoint()
-
 
 # Remove locally stored files.
-!rm $data_dir/*
+os.system('rm {}/*'.format(data_dir))
+logger.info('Local file deleted. All done.')
+
