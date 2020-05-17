@@ -13,9 +13,12 @@ Outline for using AWS SageMaker:
 
 # general libraries
 import os
+import subprocess
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import time
+from time import localtime, strftime
 
 # sklearn and Boston dataset
 import sklearn.model_selection
@@ -153,7 +156,9 @@ training_params = {
         'VolumeSizeInGB': 5
     },
 
-    'StoppingCondition': 86400,
+    'StoppingCondition': {
+        'MaxRuntimeInSeconds': 86400
+    },
 
     'StaticHyperParameters': {
         'gamma': '4',
@@ -172,7 +177,9 @@ training_params = {
                     'S3Uri': train_location,
                     'S3DataDistributionType': 'FullyReplicated'
                 }
-            }
+            },
+            'ContentType': 'csv',
+            'CompressionType': 'None'
         },
         {
             'ChannelName': 'validation',
@@ -182,7 +189,9 @@ training_params = {
                     'S3Uri': val_location,
                     'S3DataDistributionType': 'FullyReplicated'
                 }
-            }
+            },
+            'ContentType': 'csv',
+            'CompressionType': 'None'
         }
     ],
 
@@ -225,7 +234,7 @@ tuning_job_config = {
         'MaxParallelTrainingJobs': 3
     },
 
-    'Strategy': 'Bayesian'  # How to optimize the parameters.
+    'Strategy': 'Bayesian',  # How to optimize the parameters.
 
     'HyperParameterTuningJobObjective': {
         'MetricName': 'validation:rmse',
@@ -235,13 +244,12 @@ tuning_job_config = {
 
 
 # Specify the name of the training job
-training_job_name = 'tuning_' + strftime("%Y-%m-%d-%H-%M-%S", localtime())
-
+tuning_job_name = 'tuning' + strftime("%Y-%m-%d-%H-%M-%S", localtime())
 
 # Execute the training job.
 session.sagemaker_client.create_hyper_parameter_tuning_job(
     HyperParameterTuningJobName=tuning_job_name,
-    HyperparameterTuneingJobConfig=tuning_job_config,
+    HyperParameterTuningJobConfig=tuning_job_config,
     TrainingJobDefinition=training_params
 )
 
@@ -257,7 +265,7 @@ logger.info(
 )
 
 # Wait until the training is done.
-session.wait_for_tuning_job(training_job_name)
+session.wait_for_tuning_job(tuning_job_name)
 logger.info("Training done.")
 
 # Fetch the best training job.
@@ -267,7 +275,7 @@ training_job_info = session.sagemaker_client.describe_hyper_parameter_tuning_job
 
 best_training_job_name = training_job_info['BestTrainingJob']['TrainingJobName']
 training_job_info = session.sagemaker_client.describe_training_job(
-    TrainingJobName=best_training_job_bane
+    TrainingJobName=best_training_job_name
 )
 
 model_artifacts = training_job_info['ModelArtifacts']['S3ModelArtifacts']
@@ -280,7 +288,7 @@ logger.info(
 )
 
 # Assign a name to the best model.
-model_name = best_training_job_name + '_model'
+model_name = best_training_job_name + 'model'
 
 # Assign a container for prediction.
 # Use the same container used for training.
@@ -428,9 +436,13 @@ xgb_transformer.wait()
 
 
 # Copy results from S3 to the local
-!aws s3 cp - -recursive $xgb_transformer.output_path $data_dir
+subprocess.check_call("aws s3 cp --recursive {} {}".format(
+    xgb_transformer.output_path,
+    data_dir
+    ), shell=True
+)
 
-y_pred = pd.read_csv(os.path.join(data)dir, 'test.csv.out'), header = None)
+y_pred = pd.read_csv(os.path.join(data_dir, 'test.csv.out'), header = None)
 
 
 # Plot predicted/true values.
@@ -441,5 +453,5 @@ plot.ylabel('predicted')
 
 
 # Remove locally stored files.
-os.system('rm {}/*'.format(data_dir))
+subprocess.check_call('rm {}/*'.format(data_dir), shell=True)
 logger.info('Local file deleted. All done.')

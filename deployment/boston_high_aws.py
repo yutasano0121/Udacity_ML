@@ -87,13 +87,12 @@ To run SageMaker, data need to be in a S3 storage bucket.
 # store the data. Make sure header and index are both set False.
 # also make sure that the first column stores target valriables
 pd.concat([y_val, x_val], axis=1).to_csv(
-    os.path.join(data_dir, 'validation_boston.csv'), 
+    os.path.join(data_dir, 'validation.csv'), 
     header=False, index=False
 )
 
-
 pd.concat([y_train, x_train], axis=1).to_csv(
-    os.path.join(data_dir, 'train_boston.csv'), 
+    os.path.join(data_dir, 'train.csv'), 
     header=False, index=False
 )
 logger.info('Data stored locally.')
