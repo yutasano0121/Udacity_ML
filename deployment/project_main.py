@@ -1,3 +1,4 @@
+# Basics
 import os
 import subprocess
 import logging
@@ -5,13 +6,24 @@ import pickle
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
+# SageMaker
 import sagemaker
+from sagemaker.pytorch import PyTorch
+
+# sklearn
+from sklearn.metrics import accuracy_score
+
+# PyTorch
 import torch
 import torch.utils.data
+import torch.optim as optim
 
-from project_loadData import read_imdb_data, prepare_imdb_data, preprocess_data
+# Locals
+from project_loadData import read_imdb_data, prepare_imdb_data, preprocess_data, review_to_words
 from project_makeDict import build_dict, convert_and_pad_data
-
+from project_trainNN import train
+from project_model import LSTMClassifier, predict
 
 # set a working directory
 working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
@@ -141,10 +153,11 @@ pd.concat(  # training data
 
 pd.concat(  # test data
     [
-        pd.DataFrame(train_X_len),  # lengths of sentences
-        pd.DataFrame(train_X)  # data
+        pd.DataFrame(test_X_len),  # lengths of sentences
+        pd.DataFrame(test_X)  # data
     ], axis=1
-).to_csv(data_dir + 'test.csv', header=False, index=False)
+)
+test_X.to_csv(data_dir + 'test.csv', header=False, index=False)
 
 # test labels
 pd.DataFrame(test_y).to_csv(data_dir + 'test.csv', header=False, index=False)
@@ -183,3 +196,68 @@ train_sample_X = torch.from_numpy(train_sample.drop([0], axis=1).values).long()
 train_sample_ds = torch.utils.data.TensorDataset(train_sample_X, train_sample_y)
 # Build a dataloader.
 train_sample_dl = torch.utils.data.DataLoader(train_sample_ds, batch_size=50)
+
+
+# Test NN
+device = torch.devie('cuda' if torch.cuda.is_available() else 'cpu')
+model = LSTMClassifier(32, 100, 5000).to(device)
+optimizer = optim.Adam(model.parameters())
+loss_fn = torch.nn.BCELoss()
+
+logger.info("Test a PyTorch model.")
+train(model, train_sample_dl, 5, optimizer, loss_fn, device)
+
+
+# Train a full model.
+logger.info("Train a full PyTorch model.")
+estimator = PyTorch(
+    entry_point='project_trainNN.py',
+    role=role,
+    framework_version='0.4.0',
+    train_instance_count=1,
+    train_instance_type='ml.p2.xlarge',
+    hyperparameters={
+        'epochs': 10,
+        'hidden_dim': 200
+    }
+)
+estimator.fit({'training': input_data})
+
+# Deploy the model to create an endpoint.
+estimator_endpoint = estimator.deploy(
+    initial_instance_count=1,
+    instance_type='ml.p2.xlarge'
+)
+logger.info("Endpoint created.")
+
+
+# Test the model.
+test_X_concat = pd.concat(
+    [pd.DataFrame(test_X_len), pd.DataFrame(test_X)],
+    axis=1
+)
+
+pred_y = predict(
+    data=test_X_concat.values,
+    deployed_model=estimator_endpoint
+)
+pred_y = [round(num) for num in pred_y]
+logger.info(
+    "Trained model tested.\n\
+    Accuracy score: {}".format(accuracy_score(test_y, pred_y)
+)
+
+
+# more testing
+test_review = "The simplest pleasures in life are the best, and this film is one \
+    of them. Combining a rather basic storyline of love and adventure this movie \
+    transcends the usual weekend fair with wit and unmitigated charm."
+new_words = review_to_words(test_review)
+test_data = convert_and_pad_data(word_dict, new_words)
+test_result = estimator_endpoint.predict(test_data)
+print(test_result)
+
+
+# Delete the endpoint.
+estimator_endpoint.delete_endpoint()
+logger.info("Endpoint deleted.")
