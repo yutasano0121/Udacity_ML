@@ -59,4 +59,4 @@ def convert_and_pad_data(word_dict, data, pad=500):
         result.append(converted)
         lengths.append(length)
 
-    retuen np.array(result), np.array(lengths)
+    return np.array(result), np.array(lengths)
