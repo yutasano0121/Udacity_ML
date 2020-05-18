@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 import pickle
 
 
-def read_imdb_Data(data_dir):
+def read_imdb_data(data_dir):
     data = {}
     labels = {}
 

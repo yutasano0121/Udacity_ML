@@ -1,5 +1,5 @@
 from tqdm import tqdm
-
+import numpy as np
 
 def build_dict(data, vocab_size=5000):
     """Construct and return a dictionary mapping each of the most frequently appearing words to a unique integer."""
@@ -30,3 +30,33 @@ def build_dict(data, vocab_size=5000):
         word_dict[word] = idx + 2
 
     return word_dict
+
+
+# Convert words in sentences into indices in the dictionary
+def convert_and_pad(word_dict, sentence, pad=500):
+    NOWORD = 0
+    INFREQ = 1  # words not in the dictionary
+
+    working_sentence = [NOWORD] * pad  # a list of 0 with length of pad
+
+    for word_index, word in enumerate(sentence[:pad]):
+        if word in word_dict:
+            working_sentence[word_index] = word_dict[word]
+        else:
+            working_sentence[word_index] = INFREQ
+
+    return working_sentence, min(len(sentence), pad)
+
+
+# Return np.arrays of converted sentences and their length.
+def convert_and_pad_data(word_dict, data, pad=500):
+    result = []
+    lengths = []
+
+    # Apply convert_and_pad to each sentence in the data.
+    for sentence in tqdm(data):
+        converted, length = convert_and_pad(word_dict, sentence, pad)
+        result.append(converted)
+        lengths.append(length)
+
+    retuen np.array(result), np.array(lengths)

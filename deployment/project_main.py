@@ -1,15 +1,27 @@
 import os
+import subprocess
 import logging
 import pickle
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import sagemaker
+import torch
+import torch.utils.data
 
-from project_loadData import read_imdb_Data, prepare_imdb_data, review_to_words, preprocess_data
-from project_makeDict import build_dict
+from project_loadData import read_imdb_data, prepare_imdb_data, preprocess_data
+from project_makeDict import build_dict, convert_and_pad_data
 
-# set working directory
+
+# set a working directory
 working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
+
+
+# set a data directory
+data_dir = working_dir + 'data/pytorch/'
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
+
 
 # set a logger
 log_dir = working_dir + 'log/'
@@ -20,7 +32,7 @@ log_filename = log_dir + 'project.log'
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-formatter = logging.Formatter('%(asctime)s:%(levelname)s:(name)s:%(message)s')
+formatter = logging.Formatter('%(asctime)s:%(levelname)s:(name)s:%(message)s\n')
 
 file_handler = logging.FileHandler(log_filename)
 print('log file {} created'.format(log_filename))
@@ -28,6 +40,13 @@ print('log file {} created'.format(log_filename))
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
+
+
+# Set a SageMaker session.
+session = sagemaker.Session()
+bucket = session.default_bucket()
+prefix = 'sagemaker/sentiment_rnn'
+role=sagemaker.get_execution_role()
 
 
 # Load cache file or preprocess data from scratch.
@@ -57,7 +76,7 @@ else:
         )
 
     # Load raw data
-    data, labels = read_imdb_Data(working_dir + 'data/aclImdb')
+    data, labels = read_imdb_data(working_dir + 'data/aclImdb')
     logger.info(
         "Raw data loaded. \n\
         IMDB reviews: train = {} pos / {} neg, test = {} pos / {} neg".format(
@@ -99,3 +118,68 @@ else:
     with open(cache_dir + cache_file, "wb") as f:
         pickle.dump(word_dict, f)
     logger.info("word_dict pickled: " + cache_file)
+
+
+# Convert lists of words into lists of indices.
+train_X, train_X_len = convert_and_pad_data(word_dict, train_X)
+test_X, test_X_len = convert_and_pad_data(word_dict, test_X)
+logger.info(
+    "Training and test data converted and padded.\n\
+    For example, train_X[10]: {}\n\
+    train_X_len[10]: {}".format(train_X[10], train_X_len[10])
+)
+
+
+# Save the processed data locally.
+pd.concat(  # training data
+    [
+        pd.DataFrame(train_y),  # labels
+        pd.DataFrame(train_X_len),  # lengths of sentences
+        pd.DataFrame(train_X)  # data
+    ], axis=1
+).to_csv(data_dir + 'train.csv', header=False, index=False)
+
+pd.concat(  # test data
+    [
+        pd.DataFrame(train_X_len),  # lengths of sentences
+        pd.DataFrame(train_X)  # data
+    ], axis=1
+).to_csv(data_dir + 'test.csv', header=False, index=False)
+
+# test labels
+pd.DataFrame(test_y).to_csv(data_dir + 'test.csv', header=False, index=False)
+
+
+# Upload the data to S3.
+input_data = session.upload_data(
+    path=data_dir,
+    bucket=bucket,
+    key_prefix=prefix
+)
+
+
+"""
+Below for PyTorch implementation.
+"""
+
+
+# Print the neural network to be impremented.
+subprocess.check_call(
+    'pygmentize {}Project/train/model.py'.format(working_dir),
+    shell=True
+)
+
+# Load the first 250 rows.
+train_sample = pd.read_csv(
+    data_dir + 'train.csv',
+    header=None, names=None, nrows=250
+)
+
+# Turns the dataframe into tensors.
+train_sample_y = torch.from_numpy(train_sample[[0]].values).float().squeeze()
+train_sample_X = torch.from_numpy(train_sample.drop([0], axis=1).values).long()
+
+# Build a dataset.
+train_sample_ds = torch.utils.data.TensorDataset(train_sample_X, train_sample_y)
+# Build a dataloader.
+train_sample_dl = torch.utils.data.DataLoader(train_sample_ds, batch_size=50)
