@@ -6,12 +6,12 @@ def build_dict(data, vocab_size=5000):
     # TODO: Determine how often each word appears in `data`. Note that `data` is a list of sentences and that a
     #       sentence is a list of words.
     word_count = {}  # A dict storing the words that appear in the reviews along with how often they occur
-    for words in tqdm(train_X):  # train_X is a list of lists.
-        for w in tqdm(words):
+    for words in tqdm(data):  # 'data' is a list of lists.
+        for w in words:
             try:
                 word_count[w] += 1
             except KeyError:
-                word_count[w] == 1
+                word_count[w] = 1
 
     # TODO: Sort the words found in `data` so that sorted_words[0] is the most frequently appearing word and
     #       sorted_words[-1] is the least frequently appearing word.

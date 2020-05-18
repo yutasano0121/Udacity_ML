@@ -58,15 +58,6 @@ def prepare_imdb_data(data, labels):
     return data_train, data_test, labels_train, labels_test
 
 
-train_X, test_X, train_y, test_y = prepare_imdb_data(data, labels)
-logger.info(
-    "Data shuffled. \n\
-    sIMDb reviews (combined): train = {}, test = {}".format(
-        len(train_X),
-        len(test_X)
-    )
-)
-
 
 def review_to_words(review):
     nltk.download("stopwords", quiet=True)

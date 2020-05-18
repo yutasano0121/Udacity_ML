@@ -37,13 +37,13 @@ if os.path.exists(cache_dir):
     with open(cache_dir + cache_file, "rb") as f:
         cache_data = pickle.load(f)
         # Unpack data loaded from cache file
-        train_X, test_x, train_y, test_y = (
+        train_X, test_X, train_y, test_y = (
             cache_data['words_train'],
             cache_data['words_test'],
             cache_data['labels_train'],
             cache_data['labels_test']
         )
-        logger.info("Read preprocessed data from a cache file:", cache_file)
+        logger.info("Read preprocessed data from a cache file:" + cache_file)
 else:
     # Download original data if needed
     if not os.path.exists(working_dir + '/data/aclImdb'):
