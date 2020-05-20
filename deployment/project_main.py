@@ -292,7 +292,7 @@ if __name__ == 'THIS CHUNK IS IGNORED.':
 
 
 # Deploy the model for a webapp.
-estimator_endpoint2 = PyTorchModel(
+estimator2 = PyTorchModel(
     model_data=estimator.model_data,
     role=role,
     framework_version='0.4.0',
@@ -300,24 +300,22 @@ estimator_endpoint2 = PyTorchModel(
     source_dir='serve',  # use 'serve/predict.py'
     predictor_cls=StringPredictor
 )
-logger.info("Endpoint for a webapp is created.")
+logger.info("A model for a webapp is created.")
 
-predictor = estimator_endpoint2.deploy(
+estimator2_endpoint = estimator2.deploy(
     initial_instance_count=1,
     instance_type='ml.m4.xlarge'
 )
+logger.info("An endpoint for a webapp is created.")
 
 logger.info("Test the first 100 reviews.")
 ground, results = test_reviews(
-    predictor=estimator_endpoint2,
+    predictor=estimator2_endpoint,
     data_dir=data_dir,
     stop=100
 )
 logger.info("Accuracy score: {}".format(accuracy_score(ground, results)))
 
-estimator_endpoint.delete_endpoint()
-logger.info("Endpoint deleted.")
-
 # Delete the endpoint.
-estimator_endpoint2.delete_endpoint()
+estimator2_endpoint.delete_endpoint()
 logger.info("Endpoint deleted.")
