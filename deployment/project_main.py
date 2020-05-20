@@ -311,10 +311,11 @@ logger.info("An endpoint for a webapp is created.")
 logger.info("Test the first 100 reviews.")
 ground, results = test_reviews(
     predictor=estimator2_endpoint,
-    data_dir=data_dir,
+    data_dir=working_dir + 'data/aclImdb',  # a directory of test data
     stop=100
 )
 logger.info("Accuracy score: {}".format(accuracy_score(ground, results)))
+logger.info()
 
 # Delete the endpoint.
 estimator2_endpoint.delete_endpoint()

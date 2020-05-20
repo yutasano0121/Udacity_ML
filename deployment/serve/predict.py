@@ -10,15 +10,19 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
+import logging
 
 from model import LSTMClassifier
 
 from utils import review_to_words, convert_and_pad
 
 
+logger=logging.getLogger('insidePyTorch')
+
+
 def model_fn(model_dir):
     """Load the PyTorch model from the `model_dir` directory."""
-    print("Loading model.")
+    logger.info("Loading model.")
 
     # First, load the parameters used to create the model.
     model_info = {}
@@ -45,12 +49,12 @@ def model_fn(model_dir):
 
     model.to(device).eval()
 
-    print("Done loading model.")
+    logger.info("Done loading model.")
     return model
 
 
 def input_fn(serialized_input_data, content_type):
-    print('Deserializing the input data.')
+    logger.info('Deserializing the input data.')
     if content_type == 'text/plain':
         data = serialized_input_data.decode('utf-8')
         return data
@@ -59,7 +63,7 @@ def input_fn(serialized_input_data, content_type):
 
 
 def output_fn(prediction_output, accept):
-    print('Serializing the generated output.')
+    logger.info('Serializing the generated output.')
     return str(prediction_output)
 
 
@@ -91,7 +95,7 @@ def convert_and_pad_data(word_dict, data, pad=500):
 
 
 def predict_fn(input_data, model):
-    print('Inferring sentiment of input data.')
+    logger.info('Inferring sentiment of input data.')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -122,7 +126,7 @@ def predict_fn(input_data, model):
     # TODO: Compute the result of applying the model to the input data. The variable `result` should
     #       be a numpy array which contains a single integer which is either 1 or 0
 
-    result = model.forward(data)
+    result = model(data)
     result = result.numpy()
 
     return result

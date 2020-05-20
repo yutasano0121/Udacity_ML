@@ -11,8 +11,8 @@ logger = logging.getLogger('test')
 
 
 def test_reviews(predictor, data_dir, stop=250):
-    results=[]
-    ground=[]
+    results = []
+    ground = []
 
     for sentiment in ['pos', 'neg']:
         path = os.path.join(data_dir, 'test', sentiment, '*.txt')
@@ -46,12 +46,12 @@ class StringPredictor(RealTimePredictor):
         super(StringPredictor, self).__init__(
             endpoint_name,
             sagemaker_session,
-            content_type = 'text/plain'
+            content_type='text/plain'
         )
 
 
-def predict(data, deployed_model, rows = 512):
-    split_array=np.array_split(data, int(data.shape[0] / float(rows) + 1))
-    predictions=np.array([])
+def predict(data, deployed_model, rows=512):
+    split_array = np.array_split(data, int(data.shape[0] / float(rows) + 1))
+    predictions = np.array([])
     for array in split_array:
-        predictions=np.append(predictions, deployed_model.predict(array))
+        predictions = np.append(predictions, deployed_model.predict(array))
