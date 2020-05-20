@@ -25,8 +25,8 @@ import torch.optim as optim
 from project_loadData import read_imdb_data, prepare_imdb_data, preprocess_data, review_to_words
 from project_makeDict import build_dict, convert_and_pad_data
 from project_trainNN import train
-from project_model import LSTMClassifier, predict, StringPredictor
-from project_test import test_reviews
+from project_model import LSTMClassifier
+from project_test import test_reviews, predict, StringPredictor
 
 # set a working directory
 working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
