@@ -3,12 +3,11 @@ import json
 import os
 import pickle
 import sys
-import sagemaker_containers
 import pandas as pd
 import torch
 import torch.optim as optim
 import torch.utils.data
-from model import LSTMClassifier
+from project_model import LSTMClassifier
 from tqdm import tqdm
 import logging
 

@@ -7,11 +7,11 @@ import numpy as np
 
 
 class LSTMClassifier(nn.Module):
-    def __init__(self, embeddig_dim, hidden_dim, vocab_size):
+    def __init__(self, embedding_dim, hidden_dim, vocab_size):
         super(LSTMClassifier, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim)
-        self.dense = nn.Linear(in)features=hidden_dim, out_features=1)
+        self.dense = nn.Linear(in_features=hidden_dim, out_features=1)
         self.sig = nn.Sigmoid()
 
     def forward(self, x):

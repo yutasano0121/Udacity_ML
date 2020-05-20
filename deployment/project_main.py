@@ -156,8 +156,7 @@ pd.concat(  # test data
         pd.DataFrame(test_X_len),  # lengths of sentences
         pd.DataFrame(test_X)  # data
     ], axis=1
-)
-test_X.to_csv(data_dir + 'test.csv', header=False, index=False)
+).to_csv(data_dir + 'test.csv', header=False, index=False)
 
 # test labels
 pd.DataFrame(test_y).to_csv(data_dir + 'test.csv', header=False, index=False)
@@ -199,7 +198,7 @@ train_sample_dl = torch.utils.data.DataLoader(train_sample_ds, batch_size=50)
 
 
 # Test NN
-device = torch.devie('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = LSTMClassifier(32, 100, 5000).to(device)
 optimizer = optim.Adam(model.parameters())
 loss_fn = torch.nn.BCELoss()
@@ -212,6 +211,7 @@ train(model, train_sample_dl, 5, optimizer, loss_fn, device)
 logger.info("Train a full PyTorch model.")
 estimator = PyTorch(
     entry_point='project_trainNN.py',
+    source_dir=working_dir + 'Udacity_ML/deployment/',
     role=role,
     framework_version='0.4.0',
     train_instance_count=1,
@@ -244,7 +244,7 @@ pred_y = predict(
 pred_y = [round(num) for num in pred_y]
 logger.info(
     "Trained model tested.\n\
-    Accuracy score: {}".format(accuracy_score(test_y, pred_y)
+    Accuracy score: {}".format(accuracy_score(test_y, pred_y))
 )
 
 
