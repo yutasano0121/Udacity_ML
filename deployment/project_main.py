@@ -12,6 +12,7 @@ import sagemaker
 from sagemaker.pytorch import PyTorch
 from sagemaker.pytorch import PyTorchModel
 from sagemaker.predictor import RealTimePredictor
+import boto3
 
 # sklearn
 from sklearn.metrics import accuracy_score
@@ -28,9 +29,14 @@ from project_trainNN import train
 from project_model import LSTMClassifier
 from project_test import test_reviews, predict, StringPredictor
 
+
 # set a working directory
 working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
 
+# whether or not a new model is trained.
+train_new = False
+# the name of a trained model to be imported.
+trained_job_name = 'sagemaker-pytorch-2020-05-20-20-19-07-567'
 
 # set a data directory
 data_dir = working_dir + 'data/pytorch/'
@@ -47,7 +53,8 @@ log_filename = log_dir + 'project.log'
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-formatter = logging.Formatter('%(asctime)s:%(levelname)s:(name)s:%(message)s\n')
+formatter = logging.Formatter(
+    '%(asctime)s:%(levelname)s:(name)s:%(message)s\n')
 
 file_handler = logging.FileHandler(log_filename)
 print('log file {} created'.format(log_filename))
@@ -61,7 +68,7 @@ logger.addHandler(file_handler)
 session = sagemaker.Session()
 bucket = session.default_bucket()
 prefix = 'sagemaker/sentiment_rnn'
-role=sagemaker.get_execution_role()
+role = sagemaker.get_execution_role()
 
 
 # Load cache file or preprocess data from scratch.
@@ -117,7 +124,8 @@ else:
         train_X, test_X, train_y, test_y,
         cache_dir, cache_file
     )
-    logger.info('Train and test data preprocessed and pickled in {}'.format(cache_file))
+    logger.info(
+        'Train and test data preprocessed and pickled in {}'.format(cache_file))
 
 
 # Build a word dictionary.
@@ -165,24 +173,32 @@ pd.concat(  # test data
 pd.DataFrame(test_y).to_csv(data_dir + 'test.csv', header=False, index=False)
 
 
-# Upload the data to S3.
-input_data = session.upload_data(
-    path=data_dir,
-    bucket=bucket,
-    key_prefix=prefix
+# Check if the data are already uploaded to S3.
+s3 = boto3.client('s3')
+s3_object_dict = s3.list_objects_v2(
+    Bucket=bucket,
+    Prefix=prefix
 )
+s3_object_list = [content['Key'] for content in s3_object_dict['Contents']]
+
+local_data_list = os.listdir(data_dir)
+local_data_list = [os.path.join(prefix, f) for f in local_data_list]
+
+if local_data_list == s3_object_list:
+    pass
+else:
+    # Upload the data to S3.
+    input_data = session.upload_data(
+        path=data_dir,
+        bucket=bucket,
+        key_prefix=prefix
+    )
 
 
 """
 Below for PyTorch implementation.
 """
 
-
-# Print the neural network to be impremented.
-subprocess.check_call(
-    'pygmentize {}Project/train/model.py'.format(working_dir),
-    shell=True
-)
 
 # Load the first 250 rows.
 train_sample = pd.read_csv(
@@ -195,7 +211,8 @@ train_sample_y = torch.from_numpy(train_sample[[0]].values).float().squeeze()
 train_sample_X = torch.from_numpy(train_sample.drop([0], axis=1).values).long()
 
 # Build a dataset.
-train_sample_ds = torch.utils.data.TensorDataset(train_sample_X, train_sample_y)
+train_sample_ds = torch.utils.data.TensorDataset(
+    train_sample_X, train_sample_y)
 # Build a dataloader.
 train_sample_dl = torch.utils.data.DataLoader(train_sample_ds, batch_size=50)
 
@@ -224,58 +241,66 @@ estimator = PyTorch(
         'hidden_dim': 200
     }
 )
-estimator.fit({'training': input_data})
 
-# Deploy the model to create an endpoint.
-estimator_endpoint = estimator.deploy(
-    initial_instance_count=1,
-    instance_type='ml.m4.xlarge'
-)
-logger.info("Endpoint created.")
-
-
-# Test the model.
-test_X_concat = pd.concat(
-    [pd.DataFrame(test_X_len), pd.DataFrame(test_X)],
-    axis=1
-)
-
-pred_y = predict(
-    data=test_X_concat.values,
-    deployed_model=estimator_endpoint
-)
-pred_y = [round(num) for num in pred_y]
-logger.info(
-    "Trained model tested.\n\
-    Accuracy score: {}".format(accuracy_score(test_y, pred_y))
-)
+if train_new is True:
+    logger.info("Train from scratch.")
+    estimator.fit({'training': input_data})
+else:
+    logger.info("Load a pre-trained model.")
+    estimator = estimator.attach(trained_job_name)
 
 
-# more testing
-test_review = "The simplest pleasures in life are the best, and this film is one \
-    of them. Combining a rather basic storyline of love and adventure this movie \
-    transcends the usual weekend fair with wit and unmitigated charm."
-new_words = review_to_words(test_review)
-test_data = convert_and_pad_data(word_dict, new_words)
-test_result = estimator_endpoint.predict(test_data)
-print(test_result)
+if __name__ == 'THIS CHUNK IS IGNORED.':
+    # Deploy the model to create an endpoint.
+    estimator_endpoint = estimator.deploy(
+        initial_instance_count=1,
+        instance_type='ml.m4.xlarge'
+    )
+    logger.info("Endpoint created.")
 
 
-# Delete the endpoint.
-estimator_endpoint.delete_endpoint()
-logger.info("Endpoint deleted.")
+    # Test the model.
+    test_X_concat = pd.concat(
+        [pd.DataFrame(test_X_len), pd.DataFrame(test_X)],
+        axis=1
+    )
 
+    pred_y = predict(
+        data=test_X_concat.values,
+        deployed_model=estimator_endpoint
+    )
+    pred_y = [round(num) for num in pred_y]
+    logger.info(
+        "Trained model tested.\n\
+        Accuracy score: {}".format(accuracy_score(test_y, pred_y))
+    )
+
+
+    # more testing
+    test_review = "The simplest pleasures in life are the best, and this film is one \
+        of them. Combining a rather basic storyline of love and adventure this movie \
+        transcends the usual weekend fair with wit and unmitigated charm."
+    new_words = review_to_words(test_review)
+    test_data = convert_and_pad_data(word_dict, new_words)
+    test_result = estimator_endpoint.predict(test_data)
+    print(test_result)
+
+
+    # Delete the endpoint.
+    estimator_endpoint.delete_endpoint()
+    logger.info("Endpoint deleted.")
 
 
 # Deploy the model for a webapp.
 estimator_endpoint2 = PyTorchModel(
-    model_data = estimator.model_data,
-    role = role,
-    framework_version = '0.4.0',
-    entry_point = 'predict.py',
-    source_dir = 'serve',  # use 'serve/predict.py'
-    predictor_cls = StringPredictor
+    model_data=estimator.model_data,
+    role=role,
+    framework_version='0.4.0',
+    entry_point='predict.py',
+    source_dir='serve',  # use 'serve/predict.py'
+    predictor_cls=StringPredictor
 )
+logger.info("Endpoint for a webapp is created.")
 
 predictor = estimator_endpoint2.deploy(
     initial_instance_count=1,
@@ -290,6 +315,8 @@ ground, results = test_reviews(
 )
 logger.info("Accuracy score: {}".format(accuracy_score(ground, results)))
 
+estimator_endpoint.delete_endpoint()
+logger.info("Endpoint deleted.")
 
 # Delete the endpoint.
 estimator_endpoint2.delete_endpoint()
