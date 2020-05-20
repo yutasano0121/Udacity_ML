@@ -10,6 +10,8 @@ from tqdm import tqdm
 # SageMaker
 import sagemaker
 from sagemaker.pytorch import PyTorch
+from sagemaker.pytorch import PyTorchModel
+from sagemaker.predictor import RealTimePredictor
 
 # sklearn
 from sklearn.metrics import accuracy_score
@@ -23,7 +25,8 @@ import torch.optim as optim
 from project_loadData import read_imdb_data, prepare_imdb_data, preprocess_data, review_to_words
 from project_makeDict import build_dict, convert_and_pad_data
 from project_trainNN import train
-from project_model import LSTMClassifier, predict
+from project_model import LSTMClassifier, predict, StringPredictor
+from project_test import test_reviews
 
 # set a working directory
 working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
@@ -226,7 +229,7 @@ estimator.fit({'training': input_data})
 # Deploy the model to create an endpoint.
 estimator_endpoint = estimator.deploy(
     initial_instance_count=1,
-    instance_type='ml.p2.xlarge'
+    instance_type='ml.m4.xlarge'
 )
 logger.info("Endpoint created.")
 
@@ -260,4 +263,34 @@ print(test_result)
 
 # Delete the endpoint.
 estimator_endpoint.delete_endpoint()
+logger.info("Endpoint deleted.")
+
+
+
+# Deploy the model for a webapp.
+estimator_endpoint2 = PyTorchModel(
+    model_data = estimator.model_data,
+    role = role,
+    framework_version = '0.4.0',
+    entry_point = 'predict.py',
+    source_dir = 'serve',  # use 'serve/predict.py'
+    predictor_cls = StringPredictor
+)
+
+predictor = estimator_endpoint2.deploy(
+    initial_instance_count=1,
+    instance_type='ml.m4.xlarge'
+)
+
+logger.info("Test the first 100 reviews.")
+ground, results = test_reviews(
+    predictor=estimator_endpoint2,
+    data_dir=data_dir,
+    stop=100
+)
+logger.info("Accuracy score: {}".format(accuracy_score(ground, results)))
+
+
+# Delete the endpoint.
+estimator_endpoint2.delete_endpoint()
 logger.info("Endpoint deleted.")
