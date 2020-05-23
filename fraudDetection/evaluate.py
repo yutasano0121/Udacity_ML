@@ -1,7 +1,17 @@
 import numpy as np
 import pandas as pd
 import sagemaker
+import logging
 
+logger = logging.getLogger('evaluate')
+logger.setLevel(logging.INFO)
+working_dir = '/home/ec2-user/SageMaker/fraudDetection/'
+log_filename =  os.path.join(working_dir, 'log/excercise2.log')
+formatter = logging.Formatter(
+    '%(asctime)s:%(levelname)s:(name)s:%(message)s\n')
+file_handler = logging.FileHandler(log_filename)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 def print_fraudRatio(data):
     fraud_num = (data.Class == 1).sum()
@@ -41,6 +51,14 @@ def evaluate(predictor, test_features, test_labels, verbose=True):
     recall = tp / (tp + fn)
     precision = tp / (tp + fp)
     accuracy = (tp + tn) / (tp + fp + tn + fn)
+
+    
+    logger.info(
+        "Linear Learner Metrics \n\
+        Recall: {} \n\
+        Precision: {} \n\
+        Accuracy: {}\n".format(recall, precision, accuracy)
+    )
 
     # printing a table of metrics
     if verbose:

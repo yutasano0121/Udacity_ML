@@ -22,7 +22,7 @@ from evaluate import evaluate, print_fraudRatio
 
 
 # set a working directory
-working_dir = '/home/ec2-user/SageMaker/fraudDetection'
+working_dir = '/home/ec2-user/SageMaker/fraudDetection/'
 
 # whether or not a new model is trained.
 train_new = False
@@ -30,13 +30,13 @@ train_new = False
 trained_job_name = 'sagemaker-pytorch-2020-05-20-20-19-07-567'
 
 # set a data directory
-data_dir = working_dir + 'data/'
+data_dir = os.path.join(working_dir, 'data/')
 if not os.path.exists(data_dir):
     os.makedirs(data_dir)
 
 
 # set a logger
-log_dir = working_dir + 'log/'
+log_dir = os.path.join(working_dir, 'log/')
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 log_filename = log_dir + 'excercise2.log'
@@ -65,7 +65,7 @@ s3 = boto3.client('s3')
 
 # Download data.
 local_data = os.path.join(data_dir, 'creditcard.csv')
-if not os.file.exists(local_data):
+if not os.path.exists(local_data):
     logger.info('Data downloaded.')
     subprocess.check_call(
         'wget https://s3.amazonaws.com/video.udacity-data.com/topher/2019/January/5c534768_creditcardfraud/creditcardfraud.zip \
@@ -73,8 +73,10 @@ if not os.file.exists(local_data):
         shell=True
     )
     subprocess.check_call(
-        'unzip creditcardfraud.zip -d {}'.format(data_dir),
-        shell=True
+        'unzip {} -d {}'.format(
+            os.path.join(data_dir, 'creditcardfraud.zip'),
+            data_dir
+        ), shell=True
     )
 
 df = pd.read_csv(local_data)
@@ -92,7 +94,7 @@ x_train, x_test, y_train, y_test = train_test_split(
 )
 print(
     "Fraudulent ratio in train: {}".format(
-        y_train.sum / len(y_train)
+        y_train.sum() / len(y_train)
     )
 )
 
@@ -127,13 +129,14 @@ ll = LinearLearner(
     train_instance_type='ml.c4.xlarge',
     predictor_type='binary_classifier',
     output_path=output_dir,
-    sagemaker_sesion=session,
+    sagemaker_session=session,
     epochs=15
 )
 
 # Make test x and y numpy arrays.
-x_train = x_train.astype('float32')
-y_train = y_train.astype('float32')
+# Default dype is 'float 64' but 'float32' is required for both features and labels.
+x_train = np.array(x_train).astype('float32')
+y_train = np.array(y_train).astype('float32')
 train_formatted = ll.record_set(x_train, labels=y_train)
 
 logger.info('Linear Learner started.')
@@ -141,11 +144,11 @@ ll.fit(train_formatted)
 logger.info('Linear Learner done.')
 
 # Make test data numpy arrays.
-x_test = x_test.astype('float32')
-y_test = y_test.astype('float32')
+x_test = np.array(x_test).astype('float32')
+y_test = np.array(y_test).astype('float32')
 
 ll_predictor = ll.deploy(
-    instance_count=1,
+    initial_instance_count=1,
     instance_type='ml.m4.xlarge'
 )
 
@@ -178,11 +181,11 @@ ll_recall = LinearLearner(
 )
 
 logger.info('Linear Learner (high recall) started.')
-ll.fit(train_formatted)
+ll_recall.fit(train_formatted)
 logger.info('Linear Learner (high recall) done.')
 
 ll_recall_predictor = ll_recall.deploy(
-    instance_count=1,
+    initial_instance_count=1,
     instance_type='ml.m4.xlarge'
 )
 
@@ -216,14 +219,14 @@ logger.info('Linear Learner (balanced) started.')
 ll_balanced.fit(train_formatted)
 logger.info('Linear Learner (balanced) done.')
 
-ll_balanced_predictor = ll_recall.deploy(
-    instance_count=1,
+ll_balanced_predictor = ll_balanced.deploy(
+    initial_instance_count=1,
     instance_type='ml.m4.xlarge'
 )
 
 metrics_balanced = evaluate(
     ll_balanced_predictor,
-    x_test.astype('float32'),
+    x_test,
     y_test,
     verbose=True
 )
