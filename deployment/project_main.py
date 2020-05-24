@@ -31,7 +31,7 @@ from project_test import test_reviews, predict, StringPredictor
 
 
 # set a working directory
-working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
+working_dir = '/home/ec2-user/SageMaker/'
 
 # whether or not a new model is trained.
 train_new = True
@@ -185,7 +185,7 @@ local_data_list = os.listdir(data_dir)
 local_data_list = [os.path.join(prefix, f) for f in local_data_list]
 
 if local_data_list == s3_object_list:
-    pass
+    input_data = 's3://{}'.format(os.path.join(bucket, prefix, 'train.csv'))
 else:
     # Upload the data to S3.
     input_data = session.upload_data(
@@ -231,7 +231,7 @@ train(model, train_sample_dl, 5, optimizer, loss_fn, device)
 logger.info("Train a full PyTorch model.")
 estimator = PyTorch(
     entry_point='project_trainNN.py',
-    source_dir=working_dir + 'Udacity_ML/deployment/',
+    source_dir=os.path.join(working_dir, 'Udacity_ML/deployment/'),
     role=role,
     framework_version='0.4.0',
     train_instance_count=1,
