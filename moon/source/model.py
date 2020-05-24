@@ -9,15 +9,17 @@ class SimpleNet(nn.Module):
         # linear layer
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, output_dim)
-        self.dropout = nn.Dropout(0.1)
+        self.drop = nn.Dropout(0.1)
         self.sig = nn.Sigmoid()
 
     def forward(self, x):
         # Add a hidden layer, with relu activation function.
-        x = functional.relu(self.fc1(x))
+        out = self.fc1(x)
+        out = functional.relu(out)
         # Add a dropout layer.
-        x = self.dropout(x)
+        out = self.drop(out)
         # Make an output layer, followed by Sigmoid transformation.
-        x = functional.sig(self.fc2(x))
+        out = self.fc2(out)
+        out = self.sig(out)
 
-        return x
+        return out

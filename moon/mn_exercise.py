@@ -1,5 +1,5 @@
 """
-Activate 'mxnet_p36' environment!
+Activate 'pytorch_p36' environment!
 """
 
 import pandas as pd
@@ -18,6 +18,7 @@ from sagemaker import LinearLearner
 from sagemaker.pytorch import PyTorch, PyTorchModel
 
 from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_moons
 
 from func import check_data_in_S3, evaluate
 
@@ -82,7 +83,10 @@ logger.info(
 )
 
 # Save the train and test data in the local.
-pd.concat([pd.DataFrame(y_train), pd.DataFrame(x_train)]).to_csv(
+pd.concat(
+    [pd.DataFrame(y_train), pd.DataFrame(x_train)],
+    axis=1
+).to_csv(
     os.path.join(data_dir, 'train.csv'),
     header=False,
     index=False
@@ -99,17 +103,25 @@ pd.DataFrame(x_test).to_csv(
 )
 
 # Upload the data to S3.
-check_data_in_S3(data_dir, bucket, prefix, s3)
+input_data = check_data_in_S3(
+    data_dir=data_dir, 
+    session=session,
+    bucket=bucket, 
+    prefix=prefix,
+    S3=s3
+)
+print(input_data)
 
 # Instantiate a PyTorch model.
-source_dir = os.path.join(working_dir, 'Udacity_ML/moon/source/')
+#source_dir = '/home/ec2-user/SageMaker/Udacity_ML/moon/source/'
+source_dir = '/home/ec2-user/SageMaker/ML_SageMaker_Studies/Moon_Data/source_solution'
 model = PyTorch(
     entry_point='train.py',
     source_dir=source_dir,
-    train_instance_typr='ml.c4.xlarge',
+    train_instance_type='ml.c4.xlarge',
     role=role,
     sagemaker_session=session,
-    framework_version='1.59',  # latest version of PyTorch
+    framework_version='1.5',  # latest version of PyTorch
     train_instance_count=1,
     output_path='s3://{}/{}'.format(bucket, prefix),
     hyperparameters={  # Parameters specified in train.py
@@ -135,7 +147,7 @@ estimator = PyTorchModel(
     source_dir=source_dir,
     role=role,
     sagemaker_session=session,
-    framework_version='1.59'
+    framework_version='1.5'
 )
 
 # Deploy the trained model.

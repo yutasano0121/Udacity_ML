@@ -50,7 +50,6 @@ def _get_train_loader(batch_size, data_dir):
     train_data = pd.read_csv(
         os.path.join(data_dir, "train.csv"),
         header=None,
-        names=None
     )
 
     y_train = torch.from_numpy(train_data[[0]].values).float().squeeze()
@@ -82,7 +81,7 @@ def save_model_params(model, model_dir):
         torch.save(model_info, f)
 
 
-def train(model, train_loader, wpochs, optimizer, criterion, device):
+def train(model, train_loader, epochs, optimizer, criterion, device):
     """
     This is the training method that is called by the PyTorch training script.
     The parameters passed are as follows:
@@ -103,7 +102,7 @@ def train(model, train_loader, wpochs, optimizer, criterion, device):
             optimizer.zero_grad()
             output = model(data)  # estimation by the model
             loss = criterion(output, target)
-            loss.backword()  # backprop
+            loss.backward()  # backprop
             optimizer.step()
 
             total_loss += loss.item()
@@ -172,43 +171,44 @@ if __name__ == '__main__':
         metavar='S',
         help='random seed (default: 1)'
     )
+    
     parser.add_argument(
         '--input_dim',
         type=int,
-        default=10,
-        metavar='N',
-        help='number of epochs to train (default: 10)'
+        default=2,
+        metavar='IN',
+        help='number of input features (default: 2)'
     )
     parser.add_argument(
         '--hidden_dim',
-        type=float,
-        default=0.001,
-        metavar='LR',
-        help='learning rate (default: 0.001)'
+        type=int,
+        default=10,
+        metavar='H',
+        help='number of input features (default: 10)'
     )
     parser.add_argument(
         '--output_dim',
         type=int,
         default=1,
-        metavar='S',
-        help='random seed (default: 1)'
+        metavar='OUT',
+        help='output dimention (default: 1)'
     )
 
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    torch.manual_seed(args,seed)  # random seed
+    torch.manual_seed(args.seed)  # random seed
     if torch.cuda.is_available():
         torch.cuda.manual_seed(args.seed)
 
     train_loader = _get_train_loader(args.batch_size, args.data_dir)
 
-    model = None
+    model = SimpleNet(args.input_dim, args.hidden_dim, args.output_dim).to(device)
     # Given: save the parameters used to construct the model
     save_model_params(model, args.model_dir)
 
-    optimizer = None
-    criterion = None
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    criterion = nn.BCELoss()
 
     # Trains the model (given line of code, which calls the above training function)
     # This function *also* saves the model state dictionary

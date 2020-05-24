@@ -1,10 +1,12 @@
 import os
 import sagemaker
 import boto3
+import numpy as np
+import pandas as pd
 
 
 
-def check_data_in_S3(data_dir, session, bucket, prefix, S3):
+def check_data_in_S3(data_dir, session, bucket, prefix, S3, fname='train.csv'):
     """
     data_dir: local data directory
     session: sagemaker.Session()
@@ -16,37 +18,36 @@ def check_data_in_S3(data_dir, session, bucket, prefix, S3):
         Bucket=bucket,
         Prefix=prefix
     )
-    s3_object_list = [content['Key'] for content in s3_object_dict['Contents']]
+    try:  # If the s3 folder does not exist 'Contents' returns KeyError, so use 'try-except.'
+        s3_object_list = [content['Key'] for content in s3_object_dict['Contents']]
 
-    local_data_list = os.listdir(data_dir)
-    local_data_list = [os.path.join(prefix, f) for f in local_data_list]
+        training_data = os.path.join(prefix, fname) 
 
-    if set(local_data_list).intersection(s3_object_list) == set(local_data_list):
+        if not training_data in s3_object_list:
+            input_data = session.upload_data(
+                path=os.path.join(data_dir, fname),
+                bucket=bucket,
+                key_prefix=prefix
+            )
+            print("Data uploaded to S3.")
+            return(input_data)
+        else:
+            print("Data already present in S3.")
+            input_data = 's3://{}/{}'.format(bucket, training_data)
+            return(input_data)
+    except KeyError:
         input_data = session.upload_data(
-            path=data_dir,
+            path=os.path.join(data_dir, fname),
             bucket=bucket,
             key_prefix=prefix
         )
         print("Data uploaded to S3.")
         return(input_data)
-    else:
-        print("Data already present in S3.")
-        pass
 
 
 def evaluate(predictor, test_features, test_labels, verbose=True):
-    prediction_batches = []
-    for batch in np.array_split(test_features, 100):
-        prediction_batches.append(predictor.predict(batch))
-
-    pred_list_np = []
-    for batch in prediction_batches:
-        pred_list = []
-        for x in batch:
-            pred_list.append(x.label['predicted_label'].float32_tensor.values[0])
-        pred_list_np.append(np.array(pred_list))
-
-    test_preds = np.concatenate(pred_list_np)
+    # rounding and squeezing array
+    test_preds = np.squeeze(np.round(predictor.predict(test_features)))
 
     # calculate true positives, false positives, true negatives, false negatives
     tp = np.logical_and(test_labels, test_preds).sum()
@@ -59,13 +60,6 @@ def evaluate(predictor, test_features, test_labels, verbose=True):
     precision = tp / (tp + fp)
     accuracy = (tp + tn) / (tp + fp + tn + fn)
 
-
-    logger.info(
-        "Linear Learner Metrics \n\
-        Recall: {} \n\
-        Precision: {} \n\
-        Accuracy: {}\n".format(recall, precision, accuracy)
-    )
 
     # printing a table of metrics
     if verbose:
