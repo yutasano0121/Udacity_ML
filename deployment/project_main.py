@@ -90,11 +90,16 @@ else:
     # Download original data if needed
     if not os.path.exists(os.path.join(data_dir,'aclImdb')):
         subprocess.check_call(
-            "wget -O ../data/aclImdb_v1.tar.gz http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz",
+            "wget -O {} http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz".format(
+                os.path.join(data_dir, 'aclImdb_v1.tar.gz')
+            ),
             shell=True
         )
         subprocess.check_call(
-            "tar -zxf ../data/aclImdb_v1.tar.gz -C ../data",
+            "tar -zxf {} -C {}".format(
+                os.path.join(data_dir, 'aclImdb_v1.tar.gz'),
+                data_dir
+            ),
             shell=True
         )
 
