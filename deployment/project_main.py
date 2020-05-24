@@ -34,7 +34,7 @@ from project_test import test_reviews, predict, StringPredictor
 working_dir = '/home/ec2-user/SageMaker/sagemaker-deployment/'
 
 # whether or not a new model is trained.
-train_new = False
+train_new = True
 # the name of a trained model to be imported.
 trained_job_name = 'sagemaker-pytorch-2020-05-20-20-19-07-567'
 
