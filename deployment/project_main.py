@@ -31,7 +31,8 @@ from project_test import test_reviews, predict, StringPredictor
 
 
 # set a working directory
-working_dir = '/home/ec2-user/SageMaker/'
+working_dir = '/home/ec2-user/SageMaker/sentimentAnalysis/'
+code_dir = '/home/ec2-user/SageMaker/Udacity_ML/deployment/'
 
 # whether or not a new model is trained.
 train_new = True
@@ -39,13 +40,13 @@ train_new = True
 trained_job_name = 'sagemaker-pytorch-2020-05-20-20-19-07-567'
 
 # set a data directory
-data_dir = working_dir + 'data/pytorch/'
+data_dir = os.path.join(working_dir, 'data/')
 if not os.path.exists(data_dir):
     os.makedirs(data_dir)
 
 
 # set a logger
-log_dir = working_dir + 'log/'
+log_dir = os.path.join(working_dir, 'log/')
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 log_filename = log_dir + 'project.log'
@@ -72,7 +73,7 @@ role = sagemaker.get_execution_role()
 
 
 # Load cache file or preprocess data from scratch.
-cache_dir = working_dir + 'cache/sentiment_analysis/'
+cache_dir = os.path.join(working_dir, 'cache/')
 cache_file = 'preprocessed_data.pkl'
 if os.path.exists(cache_dir):
     with open(cache_dir + cache_file, "rb") as f:
@@ -87,8 +88,8 @@ if os.path.exists(cache_dir):
         logger.info("Read preprocessed data from a cache file:" + cache_file)
 else:
     # Download original data if needed
-    if not os.path.exists(working_dir + '/data/aclImdb'):
-        subprocess.checl_call(
+    if not os.path.exists(os.path.join(data_dir,'aclImdb')):
+        subprocess.check_call(
             "wget -O ../data/aclImdb_v1.tar.gz http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz",
             shell=True
         )
@@ -98,7 +99,7 @@ else:
         )
 
     # Load raw data
-    data, labels = read_imdb_data(working_dir + 'data/aclImdb')
+    data, labels = read_imdb_data(os.path.join(data_dir,'aclImdb'))
     logger.info(
         "Raw data loaded. \n\
         IMDB reviews: train = {} pos / {} neg, test = {} pos / {} neg".format(
@@ -231,7 +232,7 @@ train(model, train_sample_dl, 5, optimizer, loss_fn, device)
 logger.info("Train a full PyTorch model.")
 estimator = PyTorch(
     entry_point='project_trainNN.py',
-    source_dir=os.path.join(working_dir, 'Udacity_ML/deployment/'),
+    source_dir=code_dir,
     role=role,
     framework_version='0.4.0',
     train_instance_count=1,
@@ -297,7 +298,7 @@ estimator2 = PyTorchModel(
     role=role,
     framework_version='0.4.0',
     entry_point='predict.py',
-    source_dir='serve',  # use 'serve/predict.py'
+    source_dir=os.path.join(code_dir, 'serve/'),  # use 'serve/predict.py'
     predictor_cls=StringPredictor
 )
 logger.info("A model for a webapp is created.")
