@@ -127,6 +127,6 @@ def predict_fn(input_data, model):
     #       be a numpy array which contains a single integer which is either 1 or 0
 
     result = model(data)
-    result = result.numpy()
-
+    result = out.cpu().detach().numpy()
+    
     return result
