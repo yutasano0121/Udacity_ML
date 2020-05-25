@@ -35,9 +35,8 @@ def read_imdb_data(data_dir):
                         1 if sentiment == 'pos' else 0
                     )  # Make pos and neg into 1 and 0.
 
-            assert len(data[data_type][sentiment]) == len(labels[data][sentiment]), \
-                "{} / {} data size does not match label size".format(
-                    data_type, sentiment)
+            assert len(data[data_type][sentiment]) == len(labels[data_type][sentiment]), \
+                "{} / {} data size does not match label size".format(data_type, sentiment)
 
     return(data, labels)  # Return a dictionary containing data and labels.
 
@@ -80,8 +79,8 @@ def preprocess_data(data_train, data_test, labels_train, labels_test,
     # Preprocess training and test data to obtain words for each review
     #words_train = list(map(review_to_words, data_train))
     #words_test = list(map(review_to_words, data_test))
-    words_train = [review_to_words(review) for review in data_train]
-    words_test = [review_to_words(review) for review in data_test]
+    words_train = [review_to_words(review) for review in tqdm(data_train)]
+    words_test = [review_to_words(review) for review in tqdm(data_test)]
 
     # Write to cache file for future runs
     if cache_file is not None:

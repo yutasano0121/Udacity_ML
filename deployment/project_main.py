@@ -35,14 +35,17 @@ working_dir = '/home/ec2-user/SageMaker/sentimentAnalysis/'
 code_dir = '/home/ec2-user/SageMaker/Udacity_ML/deployment/'
 
 # whether or not a new model is trained.
-train_new = True
+train_new = False
 # the name of a trained model to be imported.
-trained_job_name = 'sagemaker-pytorch-2020-05-20-20-19-07-567'
+trained_job_name = 'sagemaker-pytorch-2020-05-25-02-59-38-123'
 
-# set a data directory
-data_dir = os.path.join(working_dir, 'data/')
-if not os.path.exists(data_dir):
-    os.makedirs(data_dir)
+# Set a data directory for Imdb raw data and processed data.
+data_dir_imdb = os.path.join(working_dir, 'data/imdb/')
+data_dir_pytorch = os.path.join(working_dir, 'data/pytorch/')
+if not os.path.exists(data_dir_imdb):
+    os.makedirs(data_dir_imdb)
+if not os.path.exists(data_dir_pytorch):
+    os.makedirs(data_dir_pytorch)
 
 
 # set a logger
@@ -88,23 +91,25 @@ if os.path.exists(cache_dir):
         logger.info("Read preprocessed data from a cache file:" + cache_file)
 else:
     # Download original data if needed
-    if not os.path.exists(os.path.join(data_dir,'aclImdb')):
+    subprocess.check_call('mkdir {}'.format(cache_dir), shell=True)
+    print('cache_dir created.')
+    if not os.path.exists(os.path.join(data_dir_imdb,'aclImdb')):
         subprocess.check_call(
             "wget -O {} http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz".format(
-                os.path.join(data_dir, 'aclImdb_v1.tar.gz')
+                os.path.join(data_dir_imdb, 'aclImdb_v1.tar.gz')
             ),
             shell=True
         )
         subprocess.check_call(
             "tar -zxf {} -C {}".format(
-                os.path.join(data_dir, 'aclImdb_v1.tar.gz'),
-                data_dir
+                os.path.join(data_dir_imdb, 'aclImdb_v1.tar.gz'),
+                data_dir_imdb
             ),
             shell=True
         )
 
     # Load raw data
-    data, labels = read_imdb_data(os.path.join(data_dir,'aclImdb'))
+    data, labels = read_imdb_data(os.path.join(data_dir_imdb,'aclImdb'))
     logger.info(
         "Raw data loaded. \n\
         IMDB reviews: train = {} pos / {} neg, test = {} pos / {} neg".format(
@@ -160,23 +165,24 @@ logger.info(
 
 
 # Save the processed data locally.
-pd.concat(  # training data
-    [
-        pd.DataFrame(train_y),  # labels
-        pd.DataFrame(train_X_len),  # lengths of sentences
-        pd.DataFrame(train_X)  # data
-    ], axis=1
-).to_csv(data_dir + 'train.csv', header=False, index=False)
+if not os.path.exists(os.path.join(data_dir_pytorch, 'test.csv')):
+    pd.concat(  # training data
+        [
+            pd.DataFrame(train_y),  # labels
+            pd.DataFrame(train_X_len),  # lengths of sentences
+            pd.DataFrame(train_X)  # data
+        ], axis=1
+    ).to_csv(os.path.join(data_dir_pytorch, 'train.csv'), header=False, index=False)
 
-pd.concat(  # test data
-    [
-        pd.DataFrame(test_X_len),  # lengths of sentences
-        pd.DataFrame(test_X)  # data
-    ], axis=1
-).to_csv(data_dir + 'test.csv', header=False, index=False)
+    pd.concat(  # test data
+        [
+            pd.DataFrame(test_X_len),  # lengths of sentences
+            pd.DataFrame(test_X)  # data
+        ], axis=1
+    ).to_csv(os.path.join(data_dir_pytorch, 'test_x.csv'), header=False, index=False)
 
-# test labels
-pd.DataFrame(test_y).to_csv(data_dir + 'test.csv', header=False, index=False)
+    # test labels
+    pd.DataFrame(test_y).to_csv(os.path.join(data_dir_pytorch, 'test_y.csv'), header=False, index=False)
 
 
 # Check if the data are already uploaded to S3.
@@ -187,28 +193,30 @@ s3_object_dict = s3.list_objects_v2(
 )
 s3_object_list = [content['Key'] for content in s3_object_dict['Contents']]
 
-local_data_list = os.listdir(data_dir)
+local_data_list = os.listdir(data_dir_pytorch)
 local_data_list = [os.path.join(prefix, f) for f in local_data_list]
 
-if local_data_list == s3_object_list:
-    input_data = 's3://{}'.format(os.path.join(bucket, prefix, 'train.csv'))
+# Upload the data if they are not present in S3.
+if set(local_data_list).intersection(s3_object_list) == set(local_data_list):
+    input_data = 's3://{}/{}'.format(bucket, prefix)
 else:
     # Upload the data to S3.
     input_data = session.upload_data(
-        path=data_dir,
+        path=data_dir_pytorch,
         bucket=bucket,
         key_prefix=prefix
     )
+logger.info("input_data: {}". format(input_data))
 
+            
 
-"""
-Below for PyTorch implementation.
-"""
+# Below for PyTorch implementation.
+
 
 
 # Load the first 250 rows.
 train_sample = pd.read_csv(
-    data_dir + 'train.csv',
+    os.path.join(data_dir_pytorch, 'train.csv'),
     header=None, names=None, nrows=250
 )
 
@@ -317,7 +325,7 @@ logger.info("An endpoint for a webapp is created.")
 logger.info("Test the first 100 reviews.")
 ground, results = test_reviews(
     predictor=estimator2_endpoint,
-    data_dir=working_dir + 'data/aclImdb',  # a directory of test data
+    data_dir=os.path.join(data_dir_imdb, 'aclImdb'),  # a directory of test data
     stop=100
 )
 logger.info("Accuracy score: {}".format(accuracy_score(ground, results)))
