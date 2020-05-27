@@ -138,7 +138,7 @@ else:
     logger.info("Load a pre-trained model.")
     estimator = estimator.attach(trained_job_name)
 
-
+"""
 # Deploy the model for a webapp.
 estimator2 = PyTorchModel(
     model_data=estimator.model_data,
@@ -168,3 +168,4 @@ logger.info()
 # Delete the endpoint.
 estimator2_endpoint.delete_endpoint()
 logger.info("Endpoint deleted.")
+"""

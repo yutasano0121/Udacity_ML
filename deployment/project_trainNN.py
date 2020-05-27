@@ -93,8 +93,6 @@ def train(
             epoch, total_loss / len(train_loader)
         ))
 
-    pass
-
 
 if __name__ == '__main__':
     # All of the model parameters and training parameters are sent as arguments when the script
