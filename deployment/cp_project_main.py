@@ -12,6 +12,7 @@ import sagemaker
 from sagemaker.pytorch import PyTorch
 from sagemaker.pytorch import PyTorchModel
 from sagemaker.predictor import RealTimePredictor
+from sklearn.metrics import accuracy_score
 import boto3
 
 # sklearn
@@ -138,7 +139,7 @@ else:
     logger.info("Load a pre-trained model.")
     estimator = estimator.attach(trained_job_name)
 
-"""
+
 # Deploy the model for a webapp.
 estimator2 = PyTorchModel(
     model_data=estimator.model_data,
@@ -155,17 +156,12 @@ estimator2_endpoint = estimator2.deploy(
     instance_type='ml.m4.xlarge'
 )
 logger.info("An endpoint for a webapp is created.")
+logger.info("Endpoint name: {}".format(estimator2_endpoint.endpoint))
 
 logger.info("Test the first 10 reviews.")
-ground, results = test_reviews(
-    predictor=estimator2_endpoint,
-    data_dir=os.path.join(data_dir_imdb, 'aclImdb'),  # a directory of test data
-    stop=10
-)
 logger.info("Accuracy score: {}".format(accuracy_score(ground, results)))
-logger.info()
 
 # Delete the endpoint.
 estimator2_endpoint.delete_endpoint()
 logger.info("Endpoint deleted.")
-"""
+

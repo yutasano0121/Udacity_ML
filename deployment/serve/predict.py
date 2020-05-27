@@ -82,7 +82,7 @@ def predict_fn(input_data, model):
     else:
         data_X, data_len = convert_and_pad(
             word_dict=model.word_dict,
-            data=review_to_words(input_data)
+            sentence=review_to_words(input_data)
         )
 
     # Using data_X and data_len we construct an appropriate input tensor. Remember
@@ -100,6 +100,6 @@ def predict_fn(input_data, model):
     #       be a numpy array which contains a single integer which is either 1 or 0
 
     result = model(data)
-    result = result.cpu().detach().numpy()
+    result = result.cpu().detach().numpy().round()
 
     return result

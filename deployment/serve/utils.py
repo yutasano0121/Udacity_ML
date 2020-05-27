@@ -33,5 +33,5 @@ def convert_and_pad(word_dict, sentence, pad=500):
             working_sentence[word_index] = word_dict[word]
         else:
             working_sentence[word_index] = INFREQ
-            
+       
     return working_sentence, min(len(sentence), pad)

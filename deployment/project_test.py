@@ -30,7 +30,7 @@ def test_reviews(predictor, data_dir, stop=250):
                     ground.append(0)
                 review_input = review.read().encode('utf-8')
                 result = predictor.predict(review_input)
-                results.append(int(result))
+                results.append(round(float(result)))
 
             files_read += 1
             if files_read == stop:
